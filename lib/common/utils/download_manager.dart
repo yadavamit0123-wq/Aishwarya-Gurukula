@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:webinar/common/common.dart';
 import 'package:webinar/common/components.dart';
 import 'package:webinar/common/enums/error_enum.dart';
@@ -19,14 +18,9 @@ class DownloadManager{
 
   static Future<void> download(String url,Function(int progress) onDownlaod,{CancelToken? cancelToken,String? name,Function? onLoadAtLocal, bool isOpen=true}) async {
 
-    PermissionStatus res = await Permission.storage.request();
-    PermissionStatus res2 = await Permission.photos.request();
+    String directory = (await getApplicationSupportDirectory()).path;
 
-    if(res.isGranted || res2.isGranted){
-      String directory = (await getApplicationSupportDirectory()).path;
-
-      
-      if(! (await findFile(directory, name ?? url.split('/').last, onLoadAtLocal: onLoadAtLocal )) ){
+    if(! (await findFile(directory, name ?? url.split('/').last, onLoadAtLocal: onLoadAtLocal )) ){
         
         String token = await AppData.getAccessToken();
 
@@ -68,10 +62,7 @@ class DownloadManager{
         }
 
 
-      } 
-    }
-    
-
+      }
   }
 
   static Future<bool> findFile(String directory, String name,{Function? onLoadAtLocal, bool isOpen=true}) async {
