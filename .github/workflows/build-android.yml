@@ -36,13 +36,16 @@ jobs:
         run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/prt.jks
 
       - name: Create key.properties
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
-          cat > android/key.properties <<EOF
-          storePassword=${{ secrets.ANDROID_STORE_PASSWORD }}
-          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
-          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
-          storeFile=prt.jks
-          EOF
+          printf '%s\n' \
+            "storePassword=${STORE_PASSWORD}" \
+            "keyPassword=${KEY_PASSWORD}" \
+            "keyAlias=${KEY_ALIAS}" \
+            "storeFile=prt.jks" > android/key.properties
 
       - name: Install dependencies
         run: flutter pub get
