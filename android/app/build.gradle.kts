@@ -26,13 +26,13 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.pt.aishwarrya"
-    compileSdk = 36
-    ndkVersion = "29.0.13599879"
+    compileSdk = 35
+    ndkVersion = "27.0.12077973"
 
     defaultConfig {
         applicationId = "com.pt.aishwarrya"
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 35
         versionCode = 5
         versionName = "1.0.0"
     }

@@ -29,8 +29,14 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: "3.29.3"
           channel: stable
           cache: true
+
+      - name: Show Flutter and Java versions
+        run: |
+          flutter --version
+          java -version
 
       - name: Decode Android keystore
         run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/prt.jks
@@ -49,6 +55,9 @@ jobs:
 
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Clean previous build artifacts
+        run: flutter clean
 
       - name: Build release APK
         run: flutter build apk --release
