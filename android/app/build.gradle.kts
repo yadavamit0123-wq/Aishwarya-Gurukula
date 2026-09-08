@@ -4,7 +4,6 @@ import java.io.FileInputStream
 
 plugins {
     id("com.android.application")
-    id("kotlin-android")
     id("com.google.gms.google-services")
     id("dev.flutter.flutter-gradle-plugin")
 }
@@ -26,14 +25,14 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.pt.aishwarrya"
-    compileSdk = 35
-    ndkVersion = "27.0.12077973"
+    compileSdk = 36
+    ndkVersion = "29.0.13599879"
 
     defaultConfig {
         applicationId = "com.pt.aishwarrya"
         minSdk = 24
-        targetSdk = 35
-        versionCode = 5
+        targetSdk = 36
+        versionCode = 6
         versionName = "1.0.0"
     }
 
@@ -57,24 +56,25 @@ android {
         }
     }
 
-    kotlinOptions {
-        jvmTarget = "1.8"
-    }
-
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
         isCoreLibraryDesugaringEnabled = true
     }
 
     sourceSets["main"].java.srcDirs("src/main/kotlin")
 }
 
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+    }
+}
+
 flutter {
     source = "../.."
 }
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.0")
     implementation("com.facebook.android:facebook-android-sdk:[8,9)")
     implementation(platform("com.google.firebase:firebase-bom:33.13.0"))
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.2")
