@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "151113953370",
+    "firebase_url": "https://aishwarrya-8c144-default-rtdb.firebaseio.com",
+    "project_id": "aishwarrya-8c144",
+    "storage_bucket": "aishwarrya-8c144.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:151113953370:android:0c590591bc32754e4c6863",
+        "android_client_info": {
+          "package_name": "com.pt.aishwarrya"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "151113953370-ac5lik9odu37no13g5hdm0l5bunilv1g.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pt.aishwarrya",
+            "certificate_hash": "4dfd8bcd3d2d0957d024eb3eb0e6f1c94e28381b"
+          }
+        },
+        {
+          "client_id": "151113953370-kc98bnrbljb284ojg31pglin8l6vdip5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCHBnhRh_Yi4xMNDO640IVTFkavaTMr3-A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "151113953370-kc98bnrbljb284ojg31pglin8l6vdip5.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
