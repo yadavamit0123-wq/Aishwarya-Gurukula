@@ -38,6 +38,9 @@ jobs:
           flutter --version
           java -version
 
+      - name: Accept Android SDK licenses
+        run: yes | flutter doctor --android-licenses
+
       - name: Decode Android keystore
         run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/prt.jks
 
