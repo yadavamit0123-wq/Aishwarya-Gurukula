@@ -5,9 +5,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:webinar/app/services/authentication_service/authentication_service.dart';
+import 'package:webinar/app/services/authentication_service/firebase_phone_auth_service.dart';
 import 'package:webinar/app/widgets/authentication_widget/register_widget/register_widget.dart';
 import 'package:webinar/common/common.dart';
 import 'package:webinar/common/data/app_data.dart';
+import 'package:webinar/common/enums/error_enum.dart';
+import 'package:webinar/common/utils/firebase_phone_config.dart';
 
 import '../../../common/data/api_public_data.dart';
 import '../../../common/enums/page_name_enum.dart';
@@ -29,139 +32,218 @@ class VerifyCodePage extends StatefulWidget {
 }
 
 class _VerifyCodePageState extends State<VerifyCodePage> {
+  late Map<String, dynamic> data;
 
-  TextEditingController controller1 = TextEditingController();
-  TextEditingController controller2 = TextEditingController();
-  TextEditingController controller3 = TextEditingController();
-  TextEditingController controller4 = TextEditingController();
-  TextEditingController controller5 = TextEditingController();
-
-  FocusNode codeNode1 = FocusNode();
-  FocusNode codeNode2 = FocusNode();
-  FocusNode codeNode3 = FocusNode();
-  FocusNode codeNode4 = FocusNode();
-  FocusNode codeNode5 = FocusNode();
+  final List<TextEditingController> _controllers = [];
+  final List<FocusNode> _focusNodes = [];
+  final FirebasePhoneAuthService _firebasePhoneAuth = FirebasePhoneAuthService();
 
   bool isEmptyInputs = true;
   bool isSendingData = false;
   bool isCodeAgain = false;
+  bool isFirebaseSending = false;
+  String? firebaseStatusMessage;
 
-  late Map data;
+  bool get isEmailFlow => data.containsKey('email') && data['email'] != null;
+
+  bool get useFirebasePhone {
+    if (isEmailFlow) return false;
+    final method = data['verification_method']?.toString();
+    if (method == 'firebase') return true;
+    if (method == 'sms') return false;
+    return FirebasePhoneConfig.useFirebasePhoneAuth;
+  }
+
+  int get otpLength {
+    if (isEmailFlow) return 5;
+    return FirebasePhoneConfig.mobileOtpLength;
+  }
+
+  String get usernameForVerification {
+    if (data['username'] != null) {
+      return data['username'].toString().replaceAll('+', '').replaceAll(' ', '');
+    }
+    final cc = data['countryCode']?.toString().replaceAll('+', '') ?? '';
+    final phone = data['phone']?.toString() ?? '';
+    return '$cc$phone';
+  }
+
+  String get phoneE164 {
+    final cc = data['countryCode']?.toString() ?? '';
+    final phone = data['phone']?.toString() ?? '';
+    if (cc.startsWith('+')) return '$cc$phone';
+    return '+$cc$phone';
+  }
 
   @override
   void initState() {
     super.initState();
-    
-    controller1.addListener(() {
-      if(getCode().length == 5){
-        if(isEmptyInputs){
-          setState(() {
-            isEmptyInputs = false;
-          });
-        }
-      }else{
-        if(!isEmptyInputs){
-          setState(() {
-            isEmptyInputs = true;
-          });
-        }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      data = Map<String, dynamic>.from(ModalRoute.of(context)!.settings.arguments as Map);
+      _setupOtpFields();
+      if (useFirebasePhone) {
+        _startFirebaseOtp();
       }
     });
-    
-    controller2.addListener(() {
-      if(getCode().length == 5){
-        if(isEmptyInputs){
-          setState(() {
-            isEmptyInputs = false;
-          });
-        }
-      }else{
-        if(!isEmptyInputs){
-          setState(() {
-            isEmptyInputs = true;
-          });
-        }
-      }
-    });
-
-    controller3.addListener(() {
-      if(getCode().length == 5){
-        if(isEmptyInputs){
-          setState(() {
-            isEmptyInputs = false;
-          });
-        }
-      }else{
-        if(!isEmptyInputs){
-          setState(() {
-            isEmptyInputs = true;
-          });
-        }
-      }
-    });
-
-    controller4.addListener(() {
-      if(getCode().length == 5){
-        if(isEmptyInputs){
-          setState(() {
-            isEmptyInputs = false;
-          });
-        }
-      }else{
-        if(!isEmptyInputs){
-          setState(() {
-            isEmptyInputs = true;
-          });
-        }
-      }
-    });
-
-    controller5.addListener(() {
-      if(getCode().length == 5){
-        if(isEmptyInputs){
-          setState(() {
-            isEmptyInputs = false;
-          });
-        }
-      }else{
-        if(!isEmptyInputs){
-          setState(() {
-            isEmptyInputs = true;
-          });
-        }
-      }
-    });
-
-
-    WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
-      data = ModalRoute.of(context)!.settings.arguments as Map;
-    });
-
-
   }
 
-  String getCode(){
-    return controller1.text.trim() + controller2.text.trim() + controller3.text.trim() + controller4.text.trim() + controller5.text.trim();
+  void _setupOtpFields() {
+    for (final c in _controllers) {
+      c.dispose();
+    }
+    for (final f in _focusNodes) {
+      f.dispose();
+    }
+    _controllers.clear();
+    _focusNodes.clear();
+
+    for (var i = 0; i < otpLength; i++) {
+      final controller = TextEditingController();
+      controller.addListener(_validateInputs);
+      _controllers.add(controller);
+      _focusNodes.add(FocusNode());
+    }
+    setState(() {});
   }
 
-  onPastedCode(String code){
-    List<String> items = code.split('');
-    controller1.text = items[0];
-    controller2.text = items[1];
-    controller3.text = items[2];
-    controller4.text = items[3];
-    controller5.text = items[4];
+  void _validateInputs() {
+    final complete = getCode().length == otpLength;
+    if (complete != !isEmptyInputs) {
+      setState(() => isEmptyInputs = !complete);
+    }
+  }
+
+  String getCode() {
+    return _controllers.map((c) => c.text.trim()).join();
+  }
+
+  void onPastedCode(String code) {
+    final digits = code.replaceAll(RegExp(r'\D'), '');
+    for (var i = 0; i < _controllers.length; i++) {
+      _controllers[i].text = i < digits.length ? digits[i] : '';
+    }
     FocusScope.of(navigatorKey.currentContext!).unfocus();
+    _validateInputs();
   }
-  
+
+  Future<void> _startFirebaseOtp() async {
+    setState(() {
+      isFirebaseSending = true;
+      firebaseStatusMessage = 'Sending verification code…';
+    });
+
+    await _firebasePhoneAuth.sendOtp(
+      phoneE164: phoneE164,
+      onCodeSent: () {
+        if (!mounted) return;
+        setState(() {
+          isFirebaseSending = false;
+          firebaseStatusMessage = 'Enter the 6-digit code sent to your phone.';
+        });
+      },
+      onFailed: (message) {
+        if (!mounted) return;
+        setState(() {
+          isFirebaseSending = false;
+          firebaseStatusMessage = message;
+        });
+        showSnackBar(ErrorEnum.error, message);
+      },
+      onAutoVerified: (idToken) async {
+        await _submitWithFirebaseToken(idToken);
+      },
+    );
+  }
+
+  Future<void> _submitWithFirebaseToken(String idToken) async {
+    setState(() => isSendingData = true);
+    final res = await AuthenticationService.verifyPhoneAccount(
+      usernameForVerification,
+      idToken: idToken,
+    );
+    await _afterVerifySuccess(res);
+    if (mounted) setState(() => isSendingData = false);
+  }
+
+  Future<void> _submitCode() async {
+    final code = getCode();
+    if (code.length != otpLength) return;
+
+    setState(() => isSendingData = true);
+
+    bool res = false;
+    if (isEmailFlow) {
+      res = await AuthenticationService.verifyCode(data['user_id'], code);
+    } else if (useFirebasePhone) {
+      final firebaseResult = await _firebasePhoneAuth.verifySmsCode(code);
+      if (firebaseResult.idToken != null) {
+        res = await AuthenticationService.verifyPhoneAccount(
+          usernameForVerification,
+          idToken: firebaseResult.idToken,
+        );
+        await _firebasePhoneAuth.signOutFirebaseSession();
+      } else {
+        showSnackBar(ErrorEnum.error, firebaseResult.error);
+      }
+    } else {
+      res = await AuthenticationService.verifyPhoneAccount(
+        usernameForVerification,
+        code: code,
+      );
+    }
+
+    await _afterVerifySuccess(res);
+    if (mounted) setState(() => isSendingData = false);
+  }
+
+  Future<void> _afterVerifySuccess(bool res) async {
+    if (!res) return;
+
+    if (Platform.isAndroid) {
+      try {
+        await FirebaseMessaging.instance.deleteToken();
+      } catch (_) {}
+    }
+
+    if (data['from_login'] == true) {
+      locator<PageProvider>().setPage(PageNames.home);
+      nextRoute(MainPage.pageName, isClearBackRoutes: true);
+      return;
+    }
+
+    AppData.canShowFinalizeSheet = true;
+    locator<PageProvider>().setPage(PageNames.home);
+    nextRoute(MainPage.pageName, isClearBackRoutes: true, arguments: data['user_id']);
+  }
+
+  void _clearOtpFields() {
+    for (final c in _controllers) {
+      c.clear();
+    }
+    setState(() => isEmptyInputs = true);
+  }
+
+  @override
+  void dispose() {
+    for (final c in _controllers) {
+      c.dispose();
+    }
+    for (final f in _focusNodes) {
+      f.dispose();
+    }
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    
+    if (_controllers.isEmpty) {
+      return directionality(child: Scaffold(body: loading()));
+    }
+
     return directionality(
       child: Scaffold(
         body: Stack(
           children: [
-
             Positioned.fill(
               child: Image.asset(
                 AppAssets.introBgPng,
@@ -170,203 +252,130 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
                 fit: BoxFit.cover,
                 colorBlendMode: BlendMode.clear,
                 color: isLightMode() ? null : greyFA,
-              )
+              ),
             ),
-
             Positioned.fill(
               child: Padding(
                 padding: padding(),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-              
                     space(getSize().height * .11),
-              
-                    // title
                     Row(
                       children: [
-              
-                        Text(
-                          appText.accountVerification,
-                          style: style24Bold(),
-                        ),
-              
-                        space(0,width: 4),
-              
-                        SvgPicture.asset(AppAssets.emoji2Svg)
+                        Text(appText.accountVerification, style: style24Bold()),
+                        space(0, width: 4),
+                        SvgPicture.asset(AppAssets.emoji2Svg),
                       ],
                     ),
-              
-                    // desc
                     Text(
-                      appText.accountVerificationDesc,
+                      useFirebasePhone
+                          ? 'Enter the verification code from Firebase SMS.'
+                          : appText.accountVerificationDesc,
                       style: style14Regular().copyWith(color: greyA5),
                     ),
-              
+                    if (firebaseStatusMessage != null) ...[
+                      space(8),
+                      Text(
+                        firebaseStatusMessage!,
+                        style: style12Regular().copyWith(color: greyA5),
+                      ),
+                    ],
+                    if (isFirebaseSending) ...[
+                      space(12),
+                      Center(child: loading()),
+                    ],
                     const Spacer(),
-              
-              
                     Directionality(
                       textDirection: TextDirection.ltr,
-              
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          
-                          RegisterWidget.codeInput(controller1, codeNode1, codeNode2, null, onPastedCode),
-                    
-                          space(0,width: 10),
-                          
-                          RegisterWidget.codeInput(controller2, codeNode2, codeNode3, codeNode1, onPastedCode),
-                          
-                          space(0,width: 10),
-                          
-                          RegisterWidget.codeInput(controller3, codeNode3, codeNode4, codeNode2, onPastedCode),
-                          
-                          space(0,width: 10),
-                          
-                          RegisterWidget.codeInput(controller4, codeNode4, codeNode5, codeNode3, onPastedCode),
-                          
-                          space(0,width: 10),
-                          
-                          RegisterWidget.codeInput(controller5, codeNode5, null, codeNode4, onPastedCode),
-                        ],
+                        children: List.generate(_controllers.length, (index) {
+                          return Padding(
+                            padding: EdgeInsets.only(left: index == 0 ? 0 : 10),
+                            child: RegisterWidget.codeInput(
+                              _controllers[index],
+                              _focusNodes[index],
+                              index < _controllers.length - 1 ? _focusNodes[index + 1] : null,
+                              index > 0 ? _focusNodes[index - 1] : null,
+                              onPastedCode,
+                            ),
+                          );
+                        }),
                       ),
                     ),
-
                     const Spacer(),
-
-
                     Center(
                       child: button(
                         onTap: () async {
-                    
-                          if(!isEmptyInputs){
-                            String code = controller1.text + controller2.text + controller3.text + controller4.text + controller5.text;
-                          
-                            if(code.length == 5){
-                              setState(() {
-                                isSendingData = true;
-                              });
-                            
-                              bool res = await AuthenticationService.verifyCode(data['user_id'], code);
-                    
-                              if(res){
-                                if(Platform.isAndroid){
-                                  await FirebaseMessaging.instance.deleteToken();
-                                }
-                                
-                                AppData.canShowFinalizeSheet = true;
-                                locator<PageProvider>().setPage(PageNames.home);
-                                nextRoute(MainPage.pageName, isClearBackRoutes: true, arguments: data['user_id']);
-                              }
-                              
-                              setState(() {
-                                isSendingData = false;
-                              });
-                            }
+                          if (!isEmptyInputs && !isSendingData) {
+                            await _submitCode();
                           }
-                    
-                        }, 
-                        width: getSize().width, 
-                        height: 52, 
-                        text: appText.verifyMyAccount, 
-                        bgColor: isEmptyInputs ? greyCF : green77(), 
-                        textColor: Colors.white, 
+                        },
+                        width: getSize().width,
+                        height: 52,
+                        text: appText.verifyMyAccount,
+                        bgColor: isEmptyInputs ? greyCF : green77(),
+                        textColor: Colors.white,
                         borderColor: Colors.transparent,
-                        isLoading: isSendingData
+                        isLoading: isSendingData,
                       ),
                     ),
-
                     space(16),
-
                     Center(
                       child: Text(
                         appText.haventReceiveTheCode,
                         style: style14Regular().copyWith(color: greyB2),
                       ),
                     ),
-                    
                     Center(
                       child: isCodeAgain
-                    ? loading()
-                    : GestureDetector(
-                        onTap: () async {
+                          ? loading()
+                          : GestureDetector(
+                              onTap: () async {
+                                setState(() => isCodeAgain = true);
 
-                          if(PublicData.apiConfigData['register_method'] == 'email'){
+                                if (isEmailFlow) {
+                                  if (PublicData.apiConfigData['register_method'] == 'email') {
+                                    await AuthenticationService.registerWithEmail(
+                                      PublicData.apiConfigData?['register_method'],
+                                      data['email'],
+                                      data['password'],
+                                      data['retypePassword'],
+                                      'user',
+                                      [],
+                                    );
+                                  }
+                                } else if (useFirebasePhone) {
+                                  await _startFirebaseOtp();
+                                } else {
+                                  await AuthenticationService.registerWithPhone(
+                                    PublicData.apiConfigData?['register_method'],
+                                    data['countryCode'],
+                                    data['phone'],
+                                    data['password'],
+                                    data['retypePassword'],
+                                    'user',
+                                    [],
+                                  );
+                                }
 
-                            setState(() {
-                              isCodeAgain = true;
-                            });
-
-                            Map? res = await AuthenticationService.registerWithEmail( // email
-                              PublicData.apiConfigData?['register_method'],
-                              data['email'], 
-                              data['password'], 
-                              data['retypePassword'],
-                              'user',
-                              []
-                            );
-
-                            if(res != null){
-                              controller1.clear();
-                              controller2.clear();
-                              controller3.clear();
-                              controller4.clear();
-                              controller5.clear();
-                            }
-                            
-                            setState(() {
-                              isCodeAgain = false;
-                            });
-                            
-                          }else{
-                            
-                            setState(() {
-                              isCodeAgain = true;
-                            });
-
-                            Map? res = await AuthenticationService.registerWithPhone( // mobile
-                              PublicData.apiConfigData?['register_method'],
-                              data['countryCode'], 
-                              data['phone'], 
-                              data['password'],
-                              data['retypePassword'],
-                              'user',
-                              []
-                            );
-                            
-                            if(res != null){
-                              controller1.clear();
-                              controller2.clear();
-                              controller3.clear();
-                              controller4.clear();
-                              controller5.clear();
-                            }
-                            
-                            setState(() {
-                              isCodeAgain = false;
-                            });
-                          }
-                        },
-                        behavior: HitTestBehavior.opaque,
-                        child: Text(
-                          appText.resendCode,
-                          style: style16Regular(),
-                        ),
-                      ),
+                                _clearOtpFields();
+                                setState(() => isCodeAgain = false);
+                              },
+                              behavior: HitTestBehavior.opaque,
+                              child: Text(appText.resendCode, style: style16Regular()),
+                            ),
                     ),
-                  
                     const Spacer(),
                     const Spacer(),
-
                   ],
                 ),
-              )
-            )
+              ),
+            ),
           ],
         ),
-      )
+      ),
     );
   }
 }

@@ -27,6 +27,7 @@ import '../../../common/enums/page_name_enum.dart';
 import '../../../common/utils/object_instance.dart';
 import '../../../config/assets.dart';
 import '../../providers/app_language_provider.dart';
+import '../../widgets/main_widget/ai_assistant/ai_assistant_fab.dart';
 
 
 
@@ -197,8 +198,15 @@ class _MainPageState extends State<MainPage> {
                         resizeToAvoidBottomInset: false,
                         extendBody: true,
 
-                        body: pageProvider.pages[pageProvider.page],
-
+                        body: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            pageProvider.pages[pageProvider.page],
+                            AiAssistantFab(
+                              bottomOffset: bottomNavHeight + MediaQuery.of(context).viewPadding.bottom + 12,
+                            ),
+                          ],
+                        ),
 
                         bottomNavigationBar: Directionality(
                           textDirection: TextDirection.ltr,

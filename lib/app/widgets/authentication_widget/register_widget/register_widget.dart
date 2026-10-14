@@ -200,7 +200,7 @@ class RegisterWidget{
             nextNode?.requestFocus();
           }else if(value.trim().isEmpty){
             previusNode?.requestFocus();
-          }else if(value.length == 5){
+          }else if(value.trim().length >= 5){
             onPastedCode(value.trim());
           }
           

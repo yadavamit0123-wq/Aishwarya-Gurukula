@@ -7,6 +7,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:webinar/app/pages/authentication_page/forget_password_page.dart';
 import 'package:webinar/app/pages/authentication_page/register_page.dart';
+import 'package:webinar/app/pages/authentication_page/verify_code_page.dart';
 import 'package:webinar/app/pages/main_page/home_page/single_course_page/single_content_page/web_view_page.dart';
 import 'package:webinar/app/pages/main_page/main_page.dart';
 import 'package:webinar/app/providers/page_provider.dart';
@@ -364,21 +365,36 @@ class _LoginPageState extends State<LoginPage> {
                                 isSendingData=true;
                               });
                               
-                              bool res = await AuthenticationService.login(
-                                '${isPhoneNumber ? countryCode.dialCode!.replaceAll('+', '') : ''}${mailController.text.trim()}', 
-                                passwordController.text.trim()
+                              final loginUsername = isPhoneNumber
+                                  ? '${countryCode.dialCode!.replaceAll('+', '')}${mailController.text.trim()}'
+                                  : mailController.text.trim();
+
+                              final loginResult = await AuthenticationService.login(
+                                loginUsername,
+                                passwordController.text.trim(),
                               );
-      
-                              if(res){
-                                
-                                if(Platform.isAndroid){ // for ios, firebase not configured
-                                  try{
+
+                              if (loginResult.success) {
+                                if (Platform.isAndroid) {
+                                  try {
                                     await FirebaseMessaging.instance.deleteToken();
-                                  }catch(_){}
+                                  } catch (_) {}
                                 }
 
                                 locator<PageProvider>().setPage(PageNames.home);
-                                nextRoute(MainPage.pageName,isClearBackRoutes: true);
+                                nextRoute(MainPage.pageName, isClearBackRoutes: true);
+                              } else if (loginResult.needsVerification &&
+                                  loginResult.verification != null) {
+                                nextRoute(
+                                  VerifyCodePage.pageName,
+                                  arguments: {
+                                    ...loginResult.verification!,
+                                    if (isPhoneNumber) ...{
+                                      'countryCode': countryCode.dialCode.toString(),
+                                      'phone': mailController.text.trim(),
+                                    },
+                                  },
+                                );
                               }
                               
                               setState(() {

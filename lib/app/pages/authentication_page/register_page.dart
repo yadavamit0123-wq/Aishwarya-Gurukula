@@ -472,11 +472,14 @@ class _RegisterPageState extends State<RegisterPage> {
                                       if(res['step'] == 'stored' || res['step'] == 'go_step_2'){
                                       
                                         nextRoute(VerifyCodePage.pageName, arguments: {
-                                          'user_id' : res['user_id'],
+                                          'user_id': res['user_id'],
                                           'countryCode': countryCode.dialCode.toString(),
                                           'phone': phoneController.text.trim(),
                                           'password': passwordController.text.trim(),
-                                          'retypePassword': retypePasswordController.text.trim()
+                                          'retypePassword': retypePasswordController.text.trim(),
+                                          'verification_method': res['verification_method'] ?? 'sms',
+                                          'username':
+                                              '${countryCode.dialCode.toString().replaceAll('+', '')}${phoneController.text.trim()}',
                                         });
         
                                       }else if(res['step'] == 'go_step_3'){

@@ -65,6 +65,7 @@ import 'app/pages/main_page/home_page/quizzes_page/quizzes_page.dart';
 import 'app/pages/main_page/providers_page/user_profile_page/user_profile_page.dart';
 import 'app/pages/main_page/home_page/search_page/result_search_page.dart';
 import 'app/pages/main_page/home_page/search_page/suggested_search_page.dart';
+import 'app/pages/main_page/home_page/ai_assistant_page/ai_assistant_page.dart';
 import 'app/pages/main_page/home_page/subscription_page/subscription_page.dart';
 import 'app/providers/app_language_provider.dart';
 import 'app/providers/filter_course_provider.dart';
@@ -178,6 +179,7 @@ class MyApp extends StatelessWidget {
               ForgetPasswordPage.pageName : (context) => const ForgetPasswordPage(),
               FilterCategoryPage.pageName : (context) => const FilterCategoryPage(),
               SuggestedSearchPage.pageName : (context) => const SuggestedSearchPage(),
+              AiAssistantPage.pageName : (context) => const AiAssistantPage(),
               ResultSearchPage.pageName : (context) => const ResultSearchPage(),
               DetailsBlogPage.pageName : (context) => const DetailsBlogPage(),
               SingleCoursePage.pageName : (context) => const SingleCoursePage(),

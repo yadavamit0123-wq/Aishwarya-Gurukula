@@ -8,7 +8,39 @@ import 'package:webinar/common/utils/error_handler.dart';
 import 'package:webinar/common/utils/http_handler.dart';
 import 'package:http/http.dart';
 
+class AuthLoginResult {
+  final bool success;
+  final bool needsVerification;
+  final Map<String, dynamic>? verification;
+
+  const AuthLoginResult({
+    required this.success,
+    this.needsVerification = false,
+    this.verification,
+  });
+}
+
 class AuthenticationService {
+  static String? _verificationMethodFromResponse(Map<String, dynamic> json) {
+    final data = json['data'];
+    if (data is Map) {
+      return data['verification_method']?.toString();
+    }
+    return json['verification_method']?.toString();
+  }
+
+  static Map<String, dynamic> _registerStepPayload(Map<String, dynamic> json) {
+    final data = json['data'];
+    final map = <String, dynamic>{
+      'user_id': data is Map ? data['user_id'] : null,
+      'step': json['status'],
+    };
+    final method = _verificationMethodFromResponse(json);
+    if (method != null) {
+      map['verification_method'] = method;
+    }
+    return map;
+  }
   static Future google(String email, String token, String name) async {
     try {
       String url = '${Constants.baseUrl}google/callback';
@@ -53,23 +85,101 @@ class AuthenticationService {
     return RegExp(r'^[\w.-]+@[\w.-]+\.\w+$').hasMatch(value);
   }
 
-  static Future login(String username, String password) async {
+  static Future<AuthLoginResult> login(String username, String password) async {
     try {
       String url = '${Constants.baseUrl}login';
+      final normalizedUsername =
+          isEmail(username) ? username : (username.startsWith('+') ? username : '+$username');
 
-      Response res = await httpPost(url, {'username': isEmail(username) ? username : "+$username", 'password': password});
+      Response res = await httpPost(url, {'username': normalizedUsername, 'password': password});
 
       var jsonResponse = parseCleanJson(res.body.toString());
       log(jsonResponse.toString());
 
-      if (jsonResponse['success']) {
-        await AppData.saveAccessToken(jsonResponse['data']['token']);
+      final data = jsonResponse['data'];
+      final token = data is Map ? data['token']?.toString() : null;
+      final verificationMethod = _verificationMethodFromResponse(jsonResponse);
+
+      if (jsonResponse['success'] == true && token != null && token.isNotEmpty) {
+        await AppData.saveAccessToken(token);
         await AppData.saveName('');
+        return const AuthLoginResult(success: true);
+      }
+
+      if (verificationMethod != null ||
+          jsonResponse['status']?.toString() == 'verification' ||
+          (data is Map && data['verification_required'] == true)) {
+        final phoneUsername = isEmail(username)
+            ? null
+            : username.replaceAll('+', '').replaceAll(' ', '');
+        return AuthLoginResult(
+          success: false,
+          needsVerification: true,
+          verification: {
+            'verification_method': verificationMethod ?? 'sms',
+            'username': phoneUsername ?? normalizedUsername.replaceAll('+', ''),
+            'countryCode': null,
+            'phone': null,
+            'password': password,
+            'from_login': true,
+          },
+        );
+      }
+
+      ErrorHandler().showError(ErrorEnum.error, jsonResponse, readMessage: true);
+      return const AuthLoginResult(success: false);
+    } catch (e) {
+      return const AuthLoginResult(success: false);
+    }
+  }
+
+  /// POST /verification — mobile Firebase (id_token) or SMS (code).
+  static Future<bool> verifyPhoneAccount(String username, {String? code, String? idToken}) async {
+    try {
+      final url = '${Constants.baseUrl}verification';
+      final body = <String, dynamic>{
+        'username': username.replaceAll('+', '').replaceAll(' ', ''),
+        if (idToken != null && idToken.isNotEmpty) 'id_token': idToken,
+        if (code != null && code.isNotEmpty) 'code': code,
+      };
+
+      Response res = await httpPost(url, body);
+      log(res.body.toString());
+
+      var jsonResponse = parseCleanJson(res.body.toString());
+      if (jsonResponse['success'] == true) {
+        final token = jsonResponse['data']?['token']?.toString();
+        if (token != null && token.isNotEmpty) {
+          await AppData.saveAccessToken(token);
+        }
         return true;
       } else {
         ErrorHandler().showError(ErrorEnum.error, jsonResponse, readMessage: true);
         return false;
       }
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Optional passwordless login when admin enables auto-register.
+  static Future<bool> firebasePhoneLogin(String idToken, {String? fcmToken}) async {
+    try {
+      final url = '${Constants.baseUrl}auth/firebase-phone/login';
+      Response res = await httpPost(url, {
+        'id_token': idToken,
+        if (fcmToken != null) 'fcm_token': fcmToken,
+      });
+      var jsonResponse = parseCleanJson(res.body.toString());
+      if (jsonResponse['success'] == true) {
+        final token = jsonResponse['data']?['token']?.toString();
+        if (token != null && token.isNotEmpty) {
+          await AppData.saveAccessToken(token);
+          return true;
+        }
+      }
+      ErrorHandler().showError(ErrorEnum.error, jsonResponse, readMessage: true);
+      return false;
     } catch (e) {
       return false;
     }
@@ -119,10 +229,7 @@ class AuthenticationService {
       if (jsonResponse['success'] ||
           jsonResponse['status'] == 'go_step_2' ||
           jsonResponse['status'] == 'go_step_3') {
-        return {
-          'user_id': jsonResponse['data']['user_id'],
-          'step': jsonResponse['status']
-        };
+        return _registerStepPayload(jsonResponse);
       } else {
         ErrorHandler().showError(ErrorEnum.error, jsonResponse);
         return null;
@@ -179,10 +286,10 @@ class AuthenticationService {
           jsonResponse['status'] == 'go_step_3') {
         // || stored
 
-        return {
-          'user_id': jsonResponse['data']['user_id'],
-          'step': jsonResponse['status']
-        };
+        final payload = _registerStepPayload(jsonResponse);
+        payload['verification_method'] ??=
+            _verificationMethodFromResponse(jsonResponse) ?? 'sms';
+        return payload;
       } else {
         ErrorHandler().showError(ErrorEnum.error, jsonResponse);
         return null;
