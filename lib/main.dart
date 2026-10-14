@@ -78,13 +78,11 @@ import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // showFlutterNotification(message);
-  // log('Handling a background message ${message.messageId}');
-  // print('notif +: ${message.data}');
-  // print('message--');
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 }
 
 
@@ -103,7 +101,7 @@ void main() async {
   await initializeDateFormatting();
   tz.initializeTimeZones();
 
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
     
   await setupFlutterNotifications();
   

@@ -43,11 +43,12 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
   bool isCodeAgain = false;
   bool isFirebaseSending = false;
   String? firebaseStatusMessage;
+  bool _useBackendSms = false;
 
   bool get isEmailFlow => data.containsKey('email') && data['email'] != null;
 
   bool get useFirebasePhone {
-    if (isEmailFlow) return false;
+    if (isEmailFlow || _useBackendSms) return false;
     final method = data['verification_method']?.toString();
     if (method == 'firebase') return true;
     if (method == 'sms') return false;
@@ -56,7 +57,19 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
 
   int get otpLength {
     if (isEmailFlow) return 5;
+    if (_useBackendSms || data['verification_method']?.toString() == 'sms') {
+      return 5;
+    }
     return FirebasePhoneConfig.mobileOtpLength;
+  }
+
+  static bool _isFirebaseAppCheckError(String message) {
+    final m = message.toLowerCase();
+    return m.contains('app identifier') ||
+        m.contains('play integrity') ||
+        m.contains('recaptcha') ||
+        m.contains('missing a valid app') ||
+        m.contains('app-not-authorized');
   }
 
   String get usernameForVerification {
@@ -126,6 +139,37 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
     _validateInputs();
   }
 
+  Future<void> _fallbackToBackendSms(String firebaseError) async {
+    setState(() {
+      _useBackendSms = true;
+      data['verification_method'] = 'sms';
+      isFirebaseSending = true;
+      firebaseStatusMessage =
+          'Firebase setup issue — sending OTP via server SMS instead…';
+    });
+    _setupOtpFields();
+
+    final sent = await AuthenticationService.resendPhoneVerification(data);
+    if (!mounted) return;
+
+    setState(() {
+      isFirebaseSending = false;
+      firebaseStatusMessage = sent
+          ? 'Enter the ${otpLength}-digit code sent by SMS.'
+          : 'Could not send SMS OTP. Add release SHA-1/SHA-256 in Firebase Console '
+              '(see Play Console app signing + upload key), then download new google-services.json.';
+    });
+
+    if (sent) {
+      showSnackBar(
+        ErrorEnum.success,
+        'OTP sent via SMS. (Firebase: fix SHA fingerprints for Play Integrity.)',
+      );
+    } else {
+      showSnackBar(ErrorEnum.error, firebaseError);
+    }
+  }
+
   Future<void> _startFirebaseOtp() async {
     setState(() {
       isFirebaseSending = true;
@@ -141,8 +185,12 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
           firebaseStatusMessage = 'Enter the 6-digit code sent to your phone.';
         });
       },
-      onFailed: (message) {
+      onFailed: (message) async {
         if (!mounted) return;
+        if (_isFirebaseAppCheckError(message)) {
+          await _fallbackToBackendSms(message);
+          return;
+        }
         setState(() {
           isFirebaseSending = false;
           firebaseStatusMessage = message;
@@ -346,7 +394,7 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
                                       [],
                                     );
                                   }
-                                } else if (useFirebasePhone) {
+                                } else if (useFirebasePhone && !_useBackendSms) {
                                   await _startFirebaseOtp();
                                 } else {
                                   await AuthenticationService.registerWithPhone(

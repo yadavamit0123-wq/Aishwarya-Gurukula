@@ -25,7 +25,9 @@ class FirebasePhoneAuthService {
         } catch (_) {}
       },
       verificationFailed: (FirebaseAuthException e) {
-        onFailed(e.message ?? 'Phone verification failed');
+        final detail = e.message ?? 'Phone verification failed';
+        final code = e.code.isNotEmpty ? ' (${e.code})' : '';
+        onFailed('$detail$code');
       },
       codeSent: (String verificationId, int? forceResendingToken) {
         _verificationId = verificationId;

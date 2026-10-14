@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:developer';
 import 'package:webinar/app/models/register_config_model.dart';
 import 'package:webinar/common/data/app_data.dart';
+import 'package:webinar/common/data/api_public_data.dart';
 import 'package:webinar/common/enums/error_enum.dart';
 import 'package:webinar/common/utils/constants.dart';
 import 'package:webinar/common/utils/error_handler.dart';
@@ -131,6 +132,40 @@ class AuthenticationService {
     } catch (e) {
       return const AuthLoginResult(success: false);
     }
+  }
+
+  /// Resend backend SMS OTP (register step 1 or login verification).
+  static Future<bool> resendPhoneVerification(Map<String, dynamic> verifyData) {
+    if (verifyData['from_login'] == true) {
+      final password = verifyData['password']?.toString();
+      final username = verifyData['username']?.toString();
+      if (password == null || username == null || password.isEmpty) {
+        return Future.value(false);
+      }
+      return login(username, password).then((r) => r.needsVerification);
+    }
+
+    final phone = verifyData['phone']?.toString();
+    final countryCode = verifyData['countryCode']?.toString();
+    final password = verifyData['password']?.toString();
+    final retype = verifyData['retypePassword']?.toString() ?? password;
+    if (phone == null ||
+        countryCode == null ||
+        password == null ||
+        phone.isEmpty ||
+        password.isEmpty) {
+      return Future.value(false);
+    }
+
+    return registerWithPhone(
+      PublicData.apiConfigData?['register_method']?.toString() ?? 'mobile',
+      countryCode,
+      phone,
+      password,
+      retype ?? password,
+      'user',
+      null,
+    ).then((payload) => payload != null);
   }
 
   /// POST /verification — mobile Firebase (id_token) or SMS (code).
