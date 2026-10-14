@@ -201,7 +201,7 @@ class _MainPageState extends State<MainPage> {
                         body: Stack(
                           clipBehavior: Clip.none,
                           children: [
-                            pageProvider.pages[pageProvider.page],
+                            pageProvider.pages[pageProvider.page] ?? const SizedBox.shrink(),
                             AiAssistantFab(
                               bottomOffset: bottomNavHeight + MediaQuery.of(context).viewPadding.bottom + 12,
                             ),
