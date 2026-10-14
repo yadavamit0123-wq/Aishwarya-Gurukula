@@ -198,21 +198,17 @@ class _MainPageState extends State<MainPage> {
                         resizeToAvoidBottomInset: false,
                         extendBody: true,
 
-                        body: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            pageProvider.pages[pageProvider.page] ?? const SizedBox.shrink(),
-                            AiAssistantFab(
-                              bottomOffset: bottomNavHeight + MediaQuery.of(context).viewPadding.bottom + 12,
-                            ),
-                          ],
-                        ),
+                        body: pageProvider.pages[pageProvider.page] ?? const SizedBox.shrink(),
 
                         bottomNavigationBar: Directionality(
                           textDirection: TextDirection.ltr,
                           child: Consumer<DrawerProvider>(
                               builder: (context, drawerProvider, _) {
                                 final bottomInset = MediaQuery.of(context).viewPadding.bottom;
+                                final screenWidth = getSize().width;
+                                // Center of the rightmost tab (My Classes): 5 tabs × 18% width, row centered.
+                                final myClassesTabCenterFromRight =
+                                    screenWidth * 0.14 - 24;
                                 return SizedBox(
                                   height: bottomNavHeight + bottomInset,
                                   child: Padding(
@@ -285,6 +281,11 @@ class _MainPageState extends State<MainPage> {
                                               ],
                                             ),
                                           ),
+                                        ),
+                                        Positioned(
+                                          right: myClassesTabCenterFromRight.clamp(8.0, screenWidth * 0.2),
+                                          bottom: bottomInset + 36,
+                                          child: const AiAssistantFab(),
                                         ),
                                                                 /*        Positioned.fill(
                                             bottom: MediaQuery.of(context).viewPadding.bottom,

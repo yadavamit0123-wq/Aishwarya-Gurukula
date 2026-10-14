@@ -65,6 +65,7 @@ class HomeProvider extends ChangeNotifier{
       
       isLoadingFeaturedListData = false;
       featuredListData = value;
+      notifyListeners();
     });
   }
 
@@ -74,6 +75,7 @@ class HomeProvider extends ChangeNotifier{
       
       isLoadingBundleData=false;
       bundleData = value;
+      notifyListeners();
     });
 
   }
@@ -84,6 +86,7 @@ class HomeProvider extends ChangeNotifier{
     
       isLoadingNewsetListData=false;
       newsetListData = value;
+      notifyListeners();
     });
 
   }
@@ -94,6 +97,7 @@ class HomeProvider extends ChangeNotifier{
     
       isLoadingBestRatedListData = false;
       bestRatedListData = value;
+      notifyListeners();
     });
 
   }
@@ -103,6 +107,7 @@ class HomeProvider extends ChangeNotifier{
       
       isLoadingBestSellingListData = false;
       bestSellingListData = value;
+      notifyListeners();
     });
     
   }
@@ -113,6 +118,7 @@ class HomeProvider extends ChangeNotifier{
       
       isLoadingDiscountListData = false;
       discountListData = value;
+      notifyListeners();
     });
     
   }
@@ -122,6 +128,7 @@ class HomeProvider extends ChangeNotifier{
       
       isLoadingFreeListData = false;
       freeListData = value;
+      notifyListeners();
     });
   
   }

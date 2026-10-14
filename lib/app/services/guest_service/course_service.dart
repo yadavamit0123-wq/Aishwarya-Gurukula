@@ -17,28 +17,222 @@ import '../../../common/utils/error_handler.dart';
 import '../../../common/components.dart';
 import '../../models/single_content_model.dart';
 import '../authentication_service/authentication_service.dart';
+import 'categories_service.dart';
 
 class CourseService{
+
+  static List<CourseModel> _coursesFromDynamic(dynamic data) {
+    final list = <CourseModel>[];
+    if (data == null) return list;
+
+    if (data is List) {
+      for (final item in data) {
+        if (item is Map<String, dynamic>) {
+          list.add(CourseModel.fromJson(item));
+        } else if (item is Map) {
+          list.add(CourseModel.fromJson(Map<String, dynamic>.from(item)));
+        }
+      }
+      return list;
+    }
+
+    if (data is Map) {
+      final nested = data['webinars'] ?? data['courses'];
+      if (nested != null) {
+        return _coursesFromDynamic(nested);
+      }
+    }
+
+    return list;
+  }
+
+  static String _appendCourseListQuery(
+    String url, {
+    bool upcoming = false,
+    bool free = false,
+    bool discount = false,
+    bool downloadable = false,
+    String? sort,
+    bool reward = false,
+    List<int>? filterOption,
+  }) {
+    if (upcoming) url += '&upcoming=1';
+    if (free) url += '&free=1';
+    if (discount) url += '&discount=1';
+    if (downloadable) url += '&downloadable=1';
+    if (reward) url += '&reward=1';
+    if (sort != null) url += '&sort=$sort';
+    if (filterOption != null && filterOption.isNotEmpty) {
+      for (final id in filterOption) {
+        url += '&filter_option=$id';
+      }
+    }
+    return url;
+  }
+
+  static List<CourseModel> _applyClientCourseFilters(
+    List<CourseModel> items, {
+    bool free = false,
+    bool discount = false,
+    bool reward = false,
+    String? sort,
+    required int offset,
+    int limit = 10,
+  }) {
+    var filtered = List<CourseModel>.from(items);
+
+    if (free) {
+      filtered = filtered.where((c) => (c.price ?? 0) == 0).toList();
+    }
+    if (discount) {
+      filtered = filtered.where((c) => (c.discountPercent ?? 0) > 0).toList();
+    }
+    if (reward) {
+      filtered = filtered.where((c) => (c.points ?? 0) > 0).toList();
+    }
+
+    switch (sort) {
+      case 'newest':
+        filtered.sort((a, b) => (b.createdAt ?? 0).compareTo(a.createdAt ?? 0));
+        break;
+      case 'best_rates':
+        filtered.sort((a, b) {
+          final ar = double.tryParse(a.rate ?? '0') ?? 0;
+          final br = double.tryParse(b.rate ?? '0') ?? 0;
+          return br.compareTo(ar);
+        });
+        break;
+      case 'bestsellers':
+        filtered.sort((a, b) => (b.salesCountNumber ?? 0).compareTo(a.salesCountNumber ?? 0));
+        break;
+    }
+
+    if (offset >= filtered.length) return [];
+    final end = (offset + limit).clamp(0, filtered.length);
+    return filtered.sublist(offset, end);
+  }
+
+  static Future<List<CourseModel>> _getFromCategoryWebinars({
+    required int categoryId,
+    required int offset,
+    int limit = 10,
+    bool upcoming = false,
+    bool free = false,
+    bool discount = false,
+    bool downloadable = false,
+    String? sort,
+    bool reward = false,
+    List<int>? filterOption,
+  }) async {
+    try {
+      var url =
+          '${Constants.baseUrl}categories/$categoryId/webinars?offset=$offset&limit=$limit';
+      url = _appendCourseListQuery(
+        url,
+        upcoming: upcoming,
+        free: free,
+        discount: discount,
+        downloadable: downloadable,
+        sort: sort,
+        reward: reward,
+        filterOption: filterOption,
+      );
+
+      final res = await httpGet(url, isMaintenance: true);
+      final jsonRes = parseCleanJson(res.body.toString());
+      if (jsonRes['success'] == true) {
+        return _coursesFromDynamic(jsonRes['data']);
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  /// When `/courses` returns empty, collect webinars from category endpoints (Rocket LMS).
+  static Future<List<CourseModel>> _discoverCoursesAcrossCategories({
+    required int offset,
+    int limit = 10,
+    bool upcoming = false,
+    bool free = false,
+    bool discount = false,
+    bool downloadable = false,
+    String? sort,
+    bool reward = false,
+    List<int>? filterOption,
+  }) async {
+    final categories = await CategoriesService.categories();
+    final merged = <CourseModel>[];
+    final seenIds = <int>{};
+
+    for (final category in categories) {
+      if (category.id == null) continue;
+      final chunk = await _getFromCategoryWebinars(
+        categoryId: category.id!,
+        offset: 0,
+        limit: 50,
+        upcoming: upcoming,
+        free: free,
+        discount: discount,
+        downloadable: downloadable,
+        sort: sort,
+        reward: reward,
+        filterOption: filterOption,
+      );
+      for (final course in chunk) {
+        final id = course.id;
+        if (id != null && seenIds.add(id)) {
+          merged.add(course);
+        }
+      }
+    }
+
+    return _applyClientCourseFilters(
+      merged,
+      free: free,
+      discount: discount,
+      reward: reward,
+      sort: sort,
+      offset: offset,
+      limit: limit,
+    );
+  }
 
   static Future<List<CourseModel>> getAll({ required int offset,bool upcoming=false, bool free=false, bool discount=false, bool downloadable=false, String? sort, String? type, String? cat, bool reward=false, bool bundle=false, List<int>? filterOption, })async{
     List<CourseModel> data = [];
     try{
-      String url = '${Constants.baseUrl}${bundle ? 'bundles' : 'courses'}?offset=$offset&limit=10';
-
-      if(upcoming) url += '&upcoming=1';
-      if(free) url += '&free=1';
-      if(discount) url += '&discount=1';
-      if(downloadable) url += '&downloadable=1';
-      if(reward) url += '&reward=1';
-
-      if(sort != null) url += '&sort=$sort';
-      if(cat != null) url += '&cat=$cat';
-
-      if(filterOption != null && filterOption.isNotEmpty){
-        for (int i=0; i < filterOption.length; i++) {
-          url += '&filter_option=${filterOption[i]}';
+      if (!bundle && cat != null) {
+        final categoryId = int.tryParse(cat);
+        if (categoryId != null) {
+          data = await _getFromCategoryWebinars(
+            categoryId: categoryId,
+            offset: offset,
+            limit: 10,
+            upcoming: upcoming,
+            free: free,
+            discount: discount,
+            downloadable: downloadable,
+            sort: sort,
+            reward: reward,
+            filterOption: filterOption,
+          );
+          if (data.isNotEmpty) {
+            log('course count (category webinars): ${data.length}');
+            return data;
+          }
         }
       }
+
+      String url = '${Constants.baseUrl}${bundle ? 'bundles' : 'courses'}?offset=$offset&limit=10';
+      url = _appendCourseListQuery(
+        url,
+        upcoming: upcoming,
+        free: free,
+        discount: discount,
+        downloadable: downloadable,
+        sort: sort,
+        reward: reward,
+        filterOption: filterOption,
+      );
+      if (cat != null) url += '&cat=$cat';
 
       Response res = await httpGet(url);
         
@@ -48,14 +242,33 @@ class CourseService{
       if (jsonRes['success'] ?? false) {
 
         if(bundle){
-          jsonRes['data']['bundles'].forEach((json){
-            data.add(CourseModel.fromJson(json));
-          });
+          final bundles = jsonRes['data']?['bundles'];
+          if (bundles is List) {
+            for (final json in bundles) {
+              if (json is Map<String, dynamic>) {
+                data.add(CourseModel.fromJson(json));
+              } else if (json is Map) {
+                data.add(CourseModel.fromJson(Map<String, dynamic>.from(json)));
+              }
+            }
+          }
 
         }else{
-          jsonRes['data'].forEach((json){
-            data.add(CourseModel.fromJson(json));
-          });
+          data = _coursesFromDynamic(jsonRes['data']);
+        }
+
+        if (!bundle && data.isEmpty && offset == 0) {
+          data = await _discoverCoursesAcrossCategories(
+            offset: offset,
+            limit: 10,
+            upcoming: upcoming,
+            free: free,
+            discount: discount,
+            downloadable: downloadable,
+            sort: sort,
+            reward: reward,
+            filterOption: filterOption,
+          );
         }
 
         log('course count : ${data.length}');
@@ -141,17 +354,29 @@ class CourseService{
 
       var jsonRes = parseCleanJson(res.body.toString());
 
-      if (jsonRes['success']) {
-        jsonRes['data'].forEach((json){
-          data.add(CourseModel.fromJson(json));
-        });
-
-        log('featured course count : ${data.length}');
-        return data;
-      }else{
-        return data;
+      if (jsonRes['success'] == true) {
+        data = _coursesFromDynamic(jsonRes['data']);
+        if (data.isNotEmpty) {
+          log('featured course count : ${data.length}');
+          return data;
+        }
       }
 
+      if (cat != null) {
+        final categoryId = int.tryParse(cat);
+        if (categoryId != null) {
+          data = await _getFromCategoryWebinars(
+            categoryId: categoryId,
+            offset: 0,
+            limit: 10,
+          );
+        }
+      } else {
+        data = await _discoverCoursesAcrossCategories(offset: 0, limit: 10);
+      }
+
+      log('featured course count (fallback): ${data.length}');
+      return data.take(10).toList();
 
     }catch(e){
       return data;

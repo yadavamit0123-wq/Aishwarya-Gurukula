@@ -8,9 +8,7 @@ import 'package:webinar/config/colors.dart';
 
 /// Floating AI entry — hidden unless config + entitlement allow.
 class AiAssistantFab extends StatefulWidget {
-  final double bottomOffset;
-
-  const AiAssistantFab({super.key, required this.bottomOffset});
+  const AiAssistantFab({super.key});
 
   @override
   State<AiAssistantFab> createState() => _AiAssistantFabState();
@@ -48,24 +46,20 @@ class _AiAssistantFabState extends State<AiAssistantFab> {
   Widget build(BuildContext context) {
     if (!_visible) return const SizedBox.shrink();
 
-    return Positioned(
-      right: 16,
-      bottom: widget.bottomOffset,
-      child: Material(
-        elevation: 6,
-        shadowColor: Colors.black26,
-        shape: const CircleBorder(),
-        color: green77(),
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: () {
-            nextRoute(AiAssistantPage.pageName);
-          },
-          child: const SizedBox(
-            width: 52,
-            height: 52,
-            child: Icon(Icons.auto_awesome, color: Colors.white, size: 26),
-          ),
+    return Material(
+      elevation: 6,
+      shadowColor: Colors.black26,
+      shape: const CircleBorder(),
+      color: green77(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: () {
+          nextRoute(AiAssistantPage.pageName);
+        },
+        child: const SizedBox(
+          width: 48,
+          height: 48,
+          child: Icon(Icons.auto_awesome, color: Colors.white, size: 24),
         ),
       ),
     );
