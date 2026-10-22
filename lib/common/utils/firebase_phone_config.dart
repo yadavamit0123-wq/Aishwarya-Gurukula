@@ -26,6 +26,10 @@ class FirebasePhoneConfig {
   static bool get useFirebasePhoneAuth =>
       isEnabled && mobileVerificationMethod == 'firebase';
 
+  /// When true, Rocket LMS does not send legacy SMS OTP for mobile (Firebase only).
+  static bool get replacesSmsOtpForMobile =>
+      _block?['replaces_sms_otp_for_mobile'] == true;
+
   /// Optional web-style Firebase fields from config (mobile uses google-services / plist).
   static FirebaseOptions? get optionsFromConfig {
     final b = _block;

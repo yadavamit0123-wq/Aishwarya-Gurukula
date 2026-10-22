@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:webinar/app/models/register_config_model.dart';
 import 'package:webinar/common/data/app_data.dart';
 import 'package:webinar/common/data/api_public_data.dart';
+import 'package:webinar/common/utils/firebase_phone_config.dart';
 import 'package:webinar/common/enums/error_enum.dart';
 import 'package:webinar/common/utils/constants.dart';
 import 'package:webinar/common/utils/error_handler.dart';
@@ -135,14 +136,21 @@ class AuthenticationService {
   }
 
   /// Resend backend SMS OTP (register step 1 or login verification).
-  static Future<bool> resendPhoneVerification(Map<String, dynamic> verifyData) {
+  static Future<({bool sent, bool smsLikelyDisabled})> resendPhoneVerification(
+    Map<String, dynamic> verifyData,
+  ) async {
+    if (FirebasePhoneConfig.replacesSmsOtpForMobile) {
+      return (sent: false, smsLikelyDisabled: true);
+    }
+
     if (verifyData['from_login'] == true) {
       final password = verifyData['password']?.toString();
       final username = verifyData['username']?.toString();
       if (password == null || username == null || password.isEmpty) {
-        return Future.value(false);
+        return (sent: false, smsLikelyDisabled: false);
       }
-      return login(username, password).then((r) => r.needsVerification);
+      final r = await login(username, password);
+      return (sent: r.needsVerification, smsLikelyDisabled: false);
     }
 
     final phone = verifyData['phone']?.toString();
@@ -154,10 +162,10 @@ class AuthenticationService {
         password == null ||
         phone.isEmpty ||
         password.isEmpty) {
-      return Future.value(false);
+      return (sent: false, smsLikelyDisabled: false);
     }
 
-    return registerWithPhone(
+    final payload = await registerWithPhone(
       PublicData.apiConfigData?['register_method']?.toString() ?? 'mobile',
       countryCode,
       phone,
@@ -165,7 +173,9 @@ class AuthenticationService {
       retype ?? password,
       'user',
       null,
-    ).then((payload) => payload != null);
+      forceSmsVerification: true,
+    );
+    return (sent: payload != null, smsLikelyDisabled: false);
   }
 
   /// POST /verification — mobile Firebase (id_token) or SMS (code).
@@ -281,7 +291,8 @@ class AuthenticationService {
       String password,
       String repeatPassword,
       String? accountType,
-      List<Fields>? fields) async {
+      List<Fields>? fields,
+      {bool forceSmsVerification = false}) async {
     try {
       String url = '${Constants.baseUrl}register/step/1';
 
@@ -291,6 +302,10 @@ class AuthenticationService {
         'mobile': mobile,
         'password': password,
         'password_confirmation': repeatPassword,
+        if (forceSmsVerification) ...{
+          'verification_method': 'sms',
+          'mobile_verification_method': 'sms',
+        },
       };
       print(body);
 

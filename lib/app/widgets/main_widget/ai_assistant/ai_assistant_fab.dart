@@ -99,17 +99,10 @@ class _AiAssistantFabState extends State<AiAssistantFab>
             'Ask Guru',
             textAlign: TextAlign.center,
             style: style12Bold().copyWith(
-              color: Colors.white,
+              color: green77(),
               fontSize: 11,
               height: 1.1,
               letterSpacing: 0.2,
-              shadows: const [
-                Shadow(
-                  color: Color(0x99000000),
-                  blurRadius: 4,
-                  offset: Offset(0, 1),
-                ),
-              ],
             ),
           ),
         ],

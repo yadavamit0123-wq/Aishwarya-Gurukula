@@ -144,26 +144,36 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
       _useBackendSms = true;
       data['verification_method'] = 'sms';
       isFirebaseSending = true;
-      firebaseStatusMessage =
-          'Firebase setup issue — sending OTP via server SMS instead…';
+      firebaseStatusMessage = 'Sending OTP to your phone…';
     });
     _setupOtpFields();
 
-    final sent = await AuthenticationService.resendPhoneVerification(data);
+    final resend = await AuthenticationService.resendPhoneVerification(data);
     if (!mounted) return;
 
     setState(() {
       isFirebaseSending = false;
-      firebaseStatusMessage = sent
-          ? 'Enter the ${otpLength}-digit code sent by SMS.'
-          : 'Could not send SMS OTP. Add release SHA-1/SHA-256 in Firebase Console '
-              '(see Play Console app signing + upload key), then download new google-services.json.';
+      if (resend.sent) {
+        firebaseStatusMessage = 'Enter the ${otpLength}-digit code sent by SMS.';
+      } else if (resend.smsLikelyDisabled) {
+        firebaseStatusMessage =
+            'Firebase OTP failed. Server SMS is off — fix Firebase SHA or ask admin to enable SMS OTP.';
+      } else {
+        firebaseStatusMessage =
+            'Could not send OTP. Please tap Resend or try again in a moment.';
+      }
     });
 
-    if (sent) {
+    if (resend.sent) {
       showSnackBar(
         ErrorEnum.success,
-        'OTP sent via SMS. (Firebase: fix SHA fingerprints for Play Integrity.)',
+        'Verification code sent to your phone by SMS.',
+      );
+    } else if (resend.smsLikelyDisabled) {
+      showSnackBar(
+        ErrorEnum.error,
+        'OTP was not sent: admin has Firebase-only mode (SMS disabled). '
+            'Add upload + Play SHA in Firebase, or disable “replaces SMS OTP” in admin.',
       );
     } else {
       showSnackBar(ErrorEnum.error, firebaseError);
@@ -397,15 +407,19 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
                                 } else if (useFirebasePhone && !_useBackendSms) {
                                   await _startFirebaseOtp();
                                 } else {
-                                  await AuthenticationService.registerWithPhone(
-                                    PublicData.apiConfigData?['register_method'],
-                                    data['countryCode'],
-                                    data['phone'],
-                                    data['password'],
-                                    data['retypePassword'],
-                                    'user',
-                                    [],
-                                  );
+                                  final resend =
+                                      await AuthenticationService.resendPhoneVerification(data);
+                                  if (resend.sent) {
+                                    showSnackBar(
+                                      ErrorEnum.success,
+                                      'Verification code sent to your phone by SMS.',
+                                    );
+                                  } else if (resend.smsLikelyDisabled) {
+                                    showSnackBar(
+                                      ErrorEnum.error,
+                                      'SMS OTP is disabled on server (Firebase-only mode).',
+                                    );
+                                  }
                                 }
 
                                 _clearOtpFields();

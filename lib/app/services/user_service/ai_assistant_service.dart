@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:http/http.dart';
 import 'package:webinar/app/models/ai_assistant_model.dart';
 import 'package:webinar/app/services/authentication_service/authentication_service.dart';
@@ -96,6 +94,7 @@ class AiAssistantService {
       final url = '${Constants.baseUrl}panel/ai/search';
       final body = <String, dynamic>{
         'query': query,
+        'question': query,
         'scope': scope,
         if (courseId != null) 'course_id': courseId,
         if (subjectId != null) 'subject_id': subjectId,
@@ -103,10 +102,9 @@ class AiAssistantService {
         if (imageBase64 != null && imageBase64.isNotEmpty) ...{
           'image_base64': imageBase64,
           'image_mime': imageMime ?? 'image/jpeg',
-          'image': imageBase64,
         },
       };
-      final res = await httpPostWithToken(url, jsonEncode(body));
+      final res = await httpPostWithToken(url, body);
       final json = parseCleanJson(res.body.toString());
       if (json['success'] == true && json['data'] != null) {
         return (
@@ -134,7 +132,7 @@ class AiAssistantService {
         'prompt': prompt,
         if (courseId != null) 'course_id': courseId,
       };
-      final res = await httpPostWithToken(url, jsonEncode(body));
+      final res = await httpPostWithToken(url, body);
       final json = parseCleanJson(res.body.toString());
       if (json['success'] == true && json['data'] != null) {
         return (
