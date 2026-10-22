@@ -23,6 +23,14 @@
           }
         },
         {
+          "client_id": "151113953370-mfqj9jg0v08t42l0spnkr8dmtrb5lv8l.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pt.aishwarrya",
+            "certificate_hash": "cde1bf42b3708b0dc684780a60549d3004ab82b7"
+          }
+        },
+        {
           "client_id": "151113953370-kc98bnrbljb284ojg31pglin8l6vdip5.apps.googleusercontent.com",
           "client_type": 3
         }
@@ -38,6 +46,13 @@
             {
               "client_id": "151113953370-kc98bnrbljb284ojg31pglin8l6vdip5.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "151113953370-onhel90aaopkor9qluviu4mbdmd98blu.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.pt.aishwarrya"
+              }
             }
           ]
         }

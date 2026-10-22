@@ -284,7 +284,7 @@ class _MainPageState extends State<MainPage> {
                                         ),
                                         Positioned(
                                           right: myClassesTabCenterFromRight.clamp(8.0, screenWidth * 0.2),
-                                          bottom: bottomInset + 36,
+                                          bottom: bottomInset + 58,
                                           child: const AiAssistantFab(),
                                         ),
                                                                 /*        Positioned.fill(

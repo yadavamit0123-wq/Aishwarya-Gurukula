@@ -89,6 +89,8 @@ class AiAssistantService {
     int? courseId,
     int? subjectId,
     String? conversationId,
+    String? imageBase64,
+    String? imageMime,
   }) async {
     try {
       final url = '${Constants.baseUrl}panel/ai/search';
@@ -98,6 +100,11 @@ class AiAssistantService {
         if (courseId != null) 'course_id': courseId,
         if (subjectId != null) 'subject_id': subjectId,
         if (conversationId != null && conversationId.isNotEmpty) 'conversation_id': conversationId,
+        if (imageBase64 != null && imageBase64.isNotEmpty) ...{
+          'image_base64': imageBase64,
+          'image_mime': imageMime ?? 'image/jpeg',
+          'image': imageBase64,
+        },
       };
       final res = await httpPostWithToken(url, jsonEncode(body));
       final json = parseCleanJson(res.body.toString());

@@ -21,6 +21,9 @@ class AiAssistantConfig {
 
   static bool get allowImageGenerate => _block?['allow_image_generate'] == true;
 
+  /// Vision search (screenshot / photo with question).
+  static bool get allowImageSearch => _block?['allow_image_search'] != false;
+
   static bool get hasAnySearchScope =>
       allowTextSearch || allowCourseSearch || allowSubjectSearch;
 }

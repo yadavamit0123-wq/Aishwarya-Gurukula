@@ -1,5 +1,12 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 import 'package:webinar/app/models/ai_assistant_model.dart';
 import 'package:webinar/app/services/user_service/ai_assistant_service.dart';
 import 'package:webinar/common/common.dart';
@@ -22,8 +29,14 @@ class _ChatMessage {
   final bool isUser;
   final String text;
   final String? imageUrl;
+  final String? localImagePath;
 
-  _ChatMessage({required this.isUser, required this.text, this.imageUrl});
+  _ChatMessage({
+    required this.isUser,
+    required this.text,
+    this.imageUrl,
+    this.localImagePath,
+  });
 }
 
 class _AiAssistantPageState extends State<AiAssistantPage> {
@@ -41,12 +54,36 @@ class _AiAssistantPageState extends State<AiAssistantPage> {
   final List<_ChatMessage> _messages = [];
   final TextEditingController _inputController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final SpeechToText _speech = SpeechToText();
+  final ImagePicker _imagePicker = ImagePicker();
+
+  bool _speechReady = false;
+  bool _isListening = false;
+  File? _pendingImage;
 
   @override
   void initState() {
     super.initState();
     _initScope();
     _bootstrap();
+    _initSpeech();
+    _inputController.addListener(() {
+      if (mounted) setState(() {});
+    });
+  }
+
+  Future<void> _initSpeech() async {
+    _speechReady = await _speech.initialize(
+      onStatus: (status) {
+        if (status == 'done' || status == 'notListening') {
+          if (mounted) setState(() => _isListening = false);
+        }
+      },
+      onError: (_) {
+        if (mounted) setState(() => _isListening = false);
+      },
+    );
+    if (mounted) setState(() {});
   }
 
   void _initScope() {
@@ -89,12 +126,114 @@ class _AiAssistantPageState extends State<AiAssistantPage> {
     if (_sending || _loadingUsage) return false;
     if (_usage == null || !_usage!.aiEnabledForUser) return false;
     if (_usage!.searchesRemaining <= 0) return false;
-    if (_inputController.text.trim().isEmpty) return false;
+    final hasText = _inputController.text.trim().isNotEmpty;
+    final hasImage = _pendingImage != null;
+    if (!hasText && !hasImage) return false;
     if (_scope == 'course' && _selectedCourse == null) return false;
     if (_scope == 'subject' && (_selectedCourse == null || _selectedSubject == null)) {
       return false;
     }
     return true;
+  }
+
+  Future<void> _toggleListening() async {
+    if (_isListening) {
+      await _speech.stop();
+      if (mounted) setState(() => _isListening = false);
+      return;
+    }
+    if (!_speechReady) {
+      showSnackBar(ErrorEnum.error, 'Voice input is not available on this device.');
+      return;
+    }
+    if (mounted) setState(() => _isListening = true);
+    await _speech.listen(
+      onResult: (result) {
+        if (!mounted) return;
+        setState(() {
+          _inputController.text = result.recognizedWords;
+          _inputController.selection = TextSelection.collapsed(
+            offset: _inputController.text.length,
+          );
+        });
+      },
+      listenMode: ListenMode.dictation,
+      partialResults: true,
+    );
+  }
+
+  Future<File?> _compressImage(File file) async {
+    try {
+      final dir = await getTemporaryDirectory();
+      final target = '${dir.path}/ai_search_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final result = await FlutterImageCompress.compressAndGetFile(
+        file.absolute.path,
+        target,
+        quality: 82,
+        minWidth: 1280,
+        minHeight: 1280,
+      );
+      if (result != null) return File(result.path);
+    } catch (_) {}
+    return file;
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final picked = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 2048,
+        maxHeight: 2048,
+        imageQuality: 88,
+      );
+      if (picked == null) return;
+      final compressed = await _compressImage(File(picked.path));
+      if (mounted) setState(() => _pendingImage = compressed);
+    } catch (_) {
+      showSnackBar(ErrorEnum.error, 'Could not pick image.');
+    }
+  }
+
+  void _showImageSourceSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: Icon(Icons.photo_library_outlined, color: green77()),
+                  title: const Text('Photo library'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _pickImage(ImageSource.gallery);
+                  },
+                ),
+                ListTile(
+                  leading: Icon(Icons.photo_camera_outlined, color: green77()),
+                  title: const Text('Camera / screenshot'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _pickImage(ImageSource.camera);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<({String? base64, String mime})> _encodePendingImageFromFile(File? file) async {
+    if (file == null) return (base64: null, mime: 'image/jpeg');
+    final bytes = await file.readAsBytes();
+    final mime = file.path.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
+    return (base64: base64Encode(bytes), mime: mime);
   }
 
   void _scrollToBottom() {
@@ -111,22 +250,41 @@ class _AiAssistantPageState extends State<AiAssistantPage> {
   Future<void> _send() async {
     if (!_canSend) return;
 
-    final query = _inputController.text.trim();
+    if (_isListening) {
+      await _speech.stop();
+      _isListening = false;
+    }
+
+    var query = _inputController.text.trim();
+    final imagePath = _pendingImage?.path;
+    if (query.isEmpty && _pendingImage != null) {
+      query = 'Please explain this image and help me with my study question.';
+    }
+
     _inputController.clear();
+    final pending = _pendingImage;
     setState(() {
-      _messages.add(_ChatMessage(isUser: true, text: query));
+      _pendingImage = null;
+      _messages.add(_ChatMessage(
+        isUser: true,
+        text: query,
+        localImagePath: imagePath,
+      ));
       _sending = true;
     });
     _scrollToBottom();
 
     await _refreshUsage();
 
+    final encoded = await _encodePendingImageFromFile(pending);
     final response = await AiAssistantService.search(
       query: query,
       scope: _scope,
       courseId: _selectedCourse?.id,
       subjectId: _selectedSubject?.id,
       conversationId: _conversationId,
+      imageBase64: encoded.base64,
+      imageMime: encoded.mime,
     );
 
     if (!mounted) return;
@@ -210,6 +368,7 @@ class _AiAssistantPageState extends State<AiAssistantPage> {
 
   @override
   void dispose() {
+    _speech.stop();
     _inputController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -276,6 +435,17 @@ class _AiAssistantPageState extends State<AiAssistantPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               if (msg.text.isNotEmpty) Text(msg.text, style: style14Regular()),
+                              if (msg.localImagePath != null) ...[
+                                space(8),
+                                ClipRRect(
+                                  borderRadius: borderRadius(radius: 8),
+                                  child: Image.file(
+                                    File(msg.localImagePath!),
+                                    width: getSize().width * .65,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              ],
                               if (msg.imageUrl != null) ...[
                                 space(8),
                                 ClipRRect(
@@ -293,12 +463,44 @@ class _AiAssistantPageState extends State<AiAssistantPage> {
                       },
                     ),
             ),
+            if (_pendingImage != null)
+              Padding(
+                padding: padding(horizontal: 12, vertical: 4),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: borderRadius(radius: 8),
+                      child: Image.file(
+                        _pendingImage!,
+                        width: 56,
+                        height: 56,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    space(0, width: 8),
+                    Expanded(
+                      child: Text(
+                        'Image attached — add a question or tap send',
+                        style: style12Regular().copyWith(color: greyA5),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: _sending ? null : () => setState(() => _pendingImage = null),
+                      icon: Icon(Icons.close, color: greyA5, size: 20),
+                    ),
+                  ],
+                ),
+              ),
             _InputBar(
               controller: _inputController,
               canSend: _canSend,
+              canAttachImage: AiAssistantConfig.allowImageSearch && !_sending,
               canGenerateImage: AiAssistantConfig.allowImageGenerate &&
                   (_usage?.imagesRemaining ?? 0) > 0 &&
                   !_sending,
+              isListening: _isListening,
+              onAttachImage: _showImageSourceSheet,
+              onToggleMic: _toggleListening,
               onSend: _send,
               onGenerateImage: _generateImage,
             ),
@@ -434,14 +636,22 @@ class _Bubble extends StatelessWidget {
 class _InputBar extends StatelessWidget {
   final TextEditingController controller;
   final bool canSend;
+  final bool canAttachImage;
   final bool canGenerateImage;
+  final bool isListening;
+  final VoidCallback onAttachImage;
+  final VoidCallback onToggleMic;
   final VoidCallback onSend;
   final VoidCallback onGenerateImage;
 
   const _InputBar({
     required this.controller,
     required this.canSend,
+    required this.canAttachImage,
     required this.canGenerateImage,
+    required this.isListening,
+    required this.onAttachImage,
+    required this.onToggleMic,
     required this.onSend,
     required this.onGenerateImage,
   });
@@ -453,11 +663,18 @@ class _InputBar extends StatelessWidget {
       child: Padding(
         padding: padding(horizontal: 12, vertical: 8),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
+            if (canAttachImage)
+              IconButton(
+                onPressed: onAttachImage,
+                icon: Icon(Icons.add_photo_alternate_outlined, color: green77()),
+                tooltip: 'Upload photo or screenshot',
+              ),
             if (canGenerateImage)
               IconButton(
                 onPressed: onGenerateImage,
-                icon: Icon(Icons.image_outlined, color: green77()),
+                icon: Icon(Icons.auto_awesome_outlined, color: green77()),
                 tooltip: 'Generate image',
               ),
             Expanded(
@@ -466,10 +683,23 @@ class _InputBar extends StatelessWidget {
                 minLines: 1,
                 maxLines: 4,
                 decoration: InputDecoration(
-                  hintText: 'Ask about your course…',
+                  hintText: isListening ? 'Listening… speak your question' : 'Ask or attach a screenshot…',
                   filled: true,
-                  fillColor: greyF8,
-                  border: OutlineInputBorder(borderRadius: borderRadius(radius: 12), borderSide: BorderSide.none),
+                  fillColor: isListening ? green77().withOpacity(.08) : greyF8,
+                  border: OutlineInputBorder(
+                    borderRadius: borderRadius(radius: 12),
+                    borderSide: isListening
+                        ? BorderSide(color: green77().withOpacity(.5))
+                        : BorderSide.none,
+                  ),
+                  suffixIcon: IconButton(
+                    onPressed: onToggleMic,
+                    icon: Icon(
+                      isListening ? Icons.mic : Icons.mic_none_outlined,
+                      color: isListening ? Colors.red : green77(),
+                    ),
+                    tooltip: isListening ? 'Stop voice input' : 'Voice search',
+                  ),
                 ),
                 onSubmitted: (_) {
                   if (canSend) onSend();
