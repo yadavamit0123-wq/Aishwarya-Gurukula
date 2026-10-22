@@ -7,6 +7,7 @@ class AppAssets {
 
   static const String placePng = '${_basePng}place.jpg';
   static const String splashPng = '${_basePng}splash-bg.png';
+  static const String appLogoPng = '${_basePng}app_icon.png';
   static const String introBgPng = '${_basePng}intro-bg.png';
   static const String paypalPng = '${_basePng}paypal.png';
   static const String payBgPng = '${_basePng}pay_bg.png';

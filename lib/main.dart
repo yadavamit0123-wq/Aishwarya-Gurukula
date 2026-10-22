@@ -78,7 +78,11 @@ import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:firebase_core/firebase_core.dart';
+import 'package:webinar/app/widgets/main_widget/whatsapp/whatsapp_floating_overlay.dart';
+import 'package:webinar/app/widgets/main_widget/whatsapp/whatsapp_route_tracker.dart';
 import 'firebase_options.dart';
+
+final WhatsAppRouteTracker whatsAppRouteTracker = WhatsAppRouteTracker();
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -143,7 +147,12 @@ class MyApp extends StatelessWidget {
           return MaterialApp(
             title: appText.webinar,
             navigatorKey: navigatorKey,
-            navigatorObservers: <NavigatorObserver>[Constants.singleCourseRouteObserver, Constants.contentRouteObserver],
+            navigatorObservers: <NavigatorObserver>[
+              Constants.singleCourseRouteObserver,
+              Constants.contentRouteObserver,
+              whatsAppRouteTracker,
+            ],
+            builder: (context, child) => WhatsAppFloatingOverlay(child: child),
             
             scrollBehavior: ScrollConfiguration.of(context).copyWith(
               dragDevices: {

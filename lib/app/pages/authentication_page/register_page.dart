@@ -51,12 +51,7 @@ class _RegisterPageState extends State<RegisterPage> {
   bool isSendingData=false;
 
 
-  CountryCode countryCode = CountryCode(
-    code: "US",
-    dialCode: "+1",
-    flagUri: "${AppAssets.flags}en.png",
-    name: "United States"
-  );
+  CountryCode countryCode = RegisterWidget.defaultPhoneCountryCode;
 
   // user
   // teacher
@@ -195,7 +190,9 @@ class _RegisterPageState extends State<RegisterPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
       
-                      space(getSize().height * .11),
+                      space(getSize().height * .06),
+                      Center(child: appBrandLogo(size: 96, cornerRadius: 22)),
+                      space(16),
       
                       // title
                       Row(

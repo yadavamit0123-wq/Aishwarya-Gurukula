@@ -11,6 +11,14 @@ import '../country_code_widget/code_country.dart';
 
 class RegisterWidget{
 
+  /// Default dial code for login / register / forgot-password phone fields.
+  static CountryCode get defaultPhoneCountryCode {
+    return allCountriesList.firstWhere(
+      (c) => c.code == 'IN',
+      orElse: () => allCountriesList.firstWhere((c) => c.dialCode == '+91'),
+    );
+  }
+
   static List<CountryCode> allCountriesList = countriesEnglish.map((s) { 
     return CountryCode(
       name: s['name'],

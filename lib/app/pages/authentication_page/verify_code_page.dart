@@ -72,6 +72,13 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
         m.contains('app-not-authorized');
   }
 
+  static bool _isFirebaseRateLimitError(String message) {
+    final m = message.toLowerCase();
+    return m.contains('too-many-requests') ||
+        m.contains('too many requests') ||
+        m.contains('unusual activity');
+  }
+
   String get usernameForVerification {
     if (data['username'] != null) {
       return data['username'].toString().replaceAll('+', '').replaceAll(' ', '');
@@ -156,8 +163,13 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
       if (resend.sent) {
         firebaseStatusMessage = 'Enter the ${otpLength}-digit code sent by SMS.';
       } else if (resend.smsLikelyDisabled) {
-        firebaseStatusMessage =
-            'Firebase OTP failed. Server SMS is off — fix Firebase SHA or ask admin to enable SMS OTP.';
+        if (_isFirebaseRateLimitError(firebaseError)) {
+          firebaseStatusMessage =
+              'Firebase blocked this device (too many OTP tries). Wait a few hours or use another phone, then try again.';
+        } else {
+          firebaseStatusMessage =
+              'Firebase OTP failed. Server SMS is off — fix Firebase SHA or ask admin to enable SMS OTP.';
+        }
       } else {
         firebaseStatusMessage =
             'Could not send OTP. Please tap Resend or try again in a moment.';
@@ -170,11 +182,19 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
         'Verification code sent to your phone by SMS.',
       );
     } else if (resend.smsLikelyDisabled) {
-      showSnackBar(
-        ErrorEnum.error,
-        'OTP was not sent: admin has Firebase-only mode (SMS disabled). '
-            'Add upload + Play SHA in Firebase, or disable “replaces SMS OTP” in admin.',
-      );
+      if (_isFirebaseRateLimitError(firebaseError)) {
+        showSnackBar(
+          ErrorEnum.error,
+          'Firebase ne is device par bahut OTP requests ki wajah se block lagaya hai. '
+              '2–24 ghante baad dubara try karein, ya testing ke liye doosra phone/device use karein.',
+        );
+      } else {
+        showSnackBar(
+          ErrorEnum.error,
+          'OTP was not sent: admin has Firebase-only mode (SMS disabled). '
+              'Add upload + Play SHA in Firebase, or disable “replaces SMS OTP” in admin.',
+        );
+      }
     } else {
       showSnackBar(ErrorEnum.error, firebaseError);
     }
@@ -197,7 +217,7 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
       },
       onFailed: (message) async {
         if (!mounted) return;
-        if (_isFirebaseAppCheckError(message)) {
+        if (_isFirebaseAppCheckError(message) || _isFirebaseRateLimitError(message)) {
           await _fallbackToBackendSms(message);
           return;
         }
@@ -318,7 +338,9 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    space(getSize().height * .11),
+                    space(getSize().height * .06),
+                    Center(child: appBrandLogo(size: 96, cornerRadius: 22)),
+                    space(16),
                     Row(
                       children: [
                         Text(appText.accountVerification, style: style24Bold()),

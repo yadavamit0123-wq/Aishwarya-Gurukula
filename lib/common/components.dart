@@ -39,6 +39,19 @@ import '../app/models/course_model.dart';
 
 
 
+/// Brand logo (launcher / splash / auth screens).
+Widget appBrandLogo({double size = 120, double cornerRadius = 22}) {
+  return ClipRRect(
+    borderRadius: BorderRadius.circular(cornerRadius),
+    child: Image.asset(
+      AppAssets.appLogoPng,
+      width: size,
+      height: size,
+      fit: BoxFit.cover,
+    ),
+  );
+}
+
 Widget courseSliderItem(CourseModel courseData,{int horizontalPadding=20}){
   return GestureDetector(
   onTap: (){

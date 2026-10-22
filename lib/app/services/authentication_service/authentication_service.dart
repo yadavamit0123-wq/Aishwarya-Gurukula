@@ -31,6 +31,57 @@ class AuthenticationService {
     return json['verification_method']?.toString();
   }
 
+  static bool _isMobileAlreadyRegisteredError(Map<String, dynamic> jsonResponse) {
+    bool textLooksDuplicate(String? text) {
+      if (text == null || text.isEmpty) return false;
+      final t = text.toLowerCase();
+      final duplicate =
+          t.contains('already') || t.contains('taken') || t.contains('exist');
+      if (!duplicate) return false;
+      return t.contains('mobile') ||
+          t.contains('phone') ||
+          t.contains('number') ||
+          t.contains('username');
+    }
+
+    if (textLooksDuplicate(jsonResponse['message']?.toString())) {
+      return true;
+    }
+
+    final errors = jsonResponse['data']?['errors'];
+    if (errors is Map) {
+      for (final entry in errors.entries) {
+        final key = entry.key.toString().toLowerCase();
+        if (key != 'mobile' &&
+            key != 'phone' &&
+            key != 'username' &&
+            !key.contains('mobile')) {
+          continue;
+        }
+        final raw = entry.value;
+        final message = raw is List && raw.isNotEmpty
+            ? raw.first?.toString()
+            : raw?.toString();
+        if (textLooksDuplicate(message)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /// When step-1 rejects a duplicate mobile, still send the user to OTP; show
+  /// "already exists" only if verification fails afterward.
+  static Map<String, dynamic> _registerPendingOtpPayload() {
+    final method = FirebasePhoneConfig.useFirebasePhoneAuth ? 'firebase' : 'sms';
+    return {
+      'user_id': null,
+      'step': 'go_step_2',
+      'verification_method': method,
+      'deferred_mobile_duplicate_check': true,
+    };
+  }
+
   static Map<String, dynamic> _registerStepPayload(Map<String, dynamic> json) {
     final data = json['data'];
     final map = <String, dynamic>{
@@ -341,6 +392,9 @@ class AuthenticationService {
             _verificationMethodFromResponse(jsonResponse) ?? 'sms';
         return payload;
       } else {
+        if (_isMobileAlreadyRegisteredError(jsonResponse)) {
+          return _registerPendingOtpPayload();
+        }
         ErrorHandler().showError(ErrorEnum.error, jsonResponse);
         return null;
       }
