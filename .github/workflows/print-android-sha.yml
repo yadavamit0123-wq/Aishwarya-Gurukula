@@ -1,0 +1,34 @@
+name: Print Android signing SHA
+
+# Manual run only — does not build APK.
+on:
+  workflow_dispatch:
+
+jobs:
+  print-sha:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Decode Android keystore
+        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/prt.jks
+
+      - name: Print release SHA-1 and SHA-256
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          echo "=== Copy these into Firebase → Project settings → Android app (com.pt.aishwarrya) ==="
+          keytool -list -v \
+            -keystore android/app/prt.jks \
+            -alias "${KEY_ALIAS}" \
+            -storepass "${STORE_PASSWORD}" 2>/dev/null | grep -E 'SHA1:|SHA256:|Alias name:'
+          echo "=== End ==="
