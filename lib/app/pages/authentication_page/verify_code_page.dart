@@ -191,8 +191,9 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
       } else {
         showSnackBar(
           ErrorEnum.error,
-          'OTP was not sent: admin has Firebase-only mode (SMS disabled). '
-              'Add upload + Play SHA in Firebase, or disable “replaces SMS OTP” in admin.',
+          'Firebase: $firebaseError\n\n'
+              'Server SMS is off (Firebase-only). Fix Firebase OTP on this build, '
+              'or ask admin to allow SMS fallback.',
         );
       }
     } else {
@@ -217,7 +218,9 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
       },
       onFailed: (message) async {
         if (!mounted) return;
-        if (_isFirebaseAppCheckError(message) || _isFirebaseRateLimitError(message)) {
+        final trySmsFallback = !FirebasePhoneConfig.replacesSmsOtpForMobile;
+        if (trySmsFallback &&
+            (_isFirebaseAppCheckError(message) || _isFirebaseRateLimitError(message))) {
           await _fallbackToBackendSms(message);
           return;
         }
