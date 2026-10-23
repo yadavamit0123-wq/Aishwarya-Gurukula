@@ -94,7 +94,7 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
 
             const Spacer(),const Spacer(),
 
-            Center(child: appBrandLogo(size: 160, cornerRadius: 36)),
+            Center(child: appBrandLogo(size: 132, cornerRadius: 28)),
             // Stack(
             //   alignment: Alignment.center,
             //

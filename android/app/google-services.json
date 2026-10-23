@@ -23,6 +23,14 @@
           }
         },
         {
+          "client_id": "151113953370-aloe5qm5u900ntpkfuqmiuub2oq65jri.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pt.aishwarrya",
+            "certificate_hash": "2be2194ac8ae7536e9f47f930b09e1357de20454"
+          }
+        },
+        {
           "client_id": "151113953370-mfqj9jg0v08t42l0spnkr8dmtrb5lv8l.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

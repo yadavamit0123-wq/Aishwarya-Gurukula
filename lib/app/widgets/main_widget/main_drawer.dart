@@ -115,11 +115,12 @@ class _MainDrawerState extends State<MainDrawer> {
                                       ),
                                       child: ClipRRect(
                                         borderRadius: BorderRadius.circular(14),
-                                        child: Image.asset(
-                                          AppAssets.appLogoPng,
-                                          width: 65,
-                                          height: 65,
-                                          fit: BoxFit.cover,
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(8),
+                                          child: Image.asset(
+                                            AppAssets.appLogoPng,
+                                            fit: BoxFit.contain,
+                                          ),
                                         ),
                                       ),
                                   )

@@ -92,7 +92,7 @@ class _ForgetPasswordPageState extends State<ForgetPasswordPage> {
                   children: [
 
                     space(getSize().height * .06),
-                    Center(child: appBrandLogo(size: 96, cornerRadius: 22)),
+                    Center(child: appBrandLogo(size: 84, cornerRadius: 20)),
                     space(16),
 
                     // title

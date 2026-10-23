@@ -342,7 +342,7 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     space(getSize().height * .06),
-                    Center(child: appBrandLogo(size: 96, cornerRadius: 22)),
+                    Center(child: appBrandLogo(size: 84, cornerRadius: 20)),
                     space(16),
                     Row(
                       children: [

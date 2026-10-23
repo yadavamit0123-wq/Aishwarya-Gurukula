@@ -26,6 +26,7 @@ class AppAssets {
   static const String emoji2Svg = '${_baseSvg}Emoji2.svg';
   static const String facebookSvg = '${_baseSvg}facebook.svg';
   static const String googleSvg = '${_baseSvg}google.svg';
+  static const String whatsappSvg = '${_baseSvg}whatsapp.svg';
   static const String passwordSvg = '${_baseSvg}password.svg';
   static const String mailSvg = '${_baseSvg}mail.svg';
   static const String searchSvg = '${_baseSvg}search.svg';

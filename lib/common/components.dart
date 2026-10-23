@@ -41,13 +41,19 @@ import '../app/models/course_model.dart';
 
 /// Brand logo (launcher / splash / auth screens).
 Widget appBrandLogo({double size = 120, double cornerRadius = 22}) {
+  final inset = size * 0.1;
   return ClipRRect(
     borderRadius: BorderRadius.circular(cornerRadius),
-    child: Image.asset(
-      AppAssets.appLogoPng,
+    child: SizedBox(
       width: size,
       height: size,
-      fit: BoxFit.cover,
+      child: Padding(
+        padding: EdgeInsets.all(inset),
+        child: Image.asset(
+          AppAssets.appLogoPng,
+          fit: BoxFit.contain,
+        ),
+      ),
     ),
   );
 }

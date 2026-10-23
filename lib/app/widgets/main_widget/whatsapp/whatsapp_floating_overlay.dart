@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher_string.dart';
+import 'package:webinar/config/assets.dart';
 import 'package:webinar/app/pages/main_page/main_page.dart';
 import 'package:webinar/app/services/user_service/ai_assistant_service.dart';
 import 'package:webinar/app/widgets/main_widget/whatsapp/whatsapp_route_tracker.dart';
@@ -112,10 +114,16 @@ class _WhatsAppFloatingOverlayState extends State<WhatsAppFloatingOverlay> {
                 child: InkWell(
                   customBorder: const CircleBorder(),
                   onTap: _openWhatsApp,
-                  child: const SizedBox(
+                  child: SizedBox(
                     width: 52,
                     height: 52,
-                    child: Icon(Icons.chat, color: Colors.white, size: 26),
+                    child: Padding(
+                      padding: const EdgeInsets.all(11),
+                      child: SvgPicture.asset(
+                        AppAssets.whatsappSvg,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
                   ),
                 ),
               ),
